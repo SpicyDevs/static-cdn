@@ -1,0 +1,69 @@
+import { PermissionFlagsBits } from "discord.js";
+import { getVoiceMembers } from "../../../structures/Utils/ChannelUtils.mjs";
+import { Embed, ErrorEmbed } from "../../../structures/Utils/Embeds.mjs";
+import { checkPreMusicCommand } from "../../../structures/Utils/MusicUtils.mjs";
+import { formBool, parseChannelMention, parseUserMention } from "../../../structures/Utils/StringUtils.mjs";
+import { msUnix } from "../../../structures/Utils/TimeUtils.mjs";
+
+/** @type {import("../../../structures/Types/Command.mjs").PrefixCommand}*/
+export default {
+    name: "name",
+    slashCommandKey: "/temp voice name",
+    description: "Changes the name of the temporary voice channel.",
+    options: [{
+        name: "name",
+        description: "The new name for the channel (without spaces).",
+        type: "STRING",
+        required: true,
+    }],
+    async execute(client, message, args) {
+        if (!checkPreMusicCommand(message, undefined, "voice", { isInVC: true })) return;
+
+        const vc = message.member.voice.channel;
+
+        const tempVoice = await client.remoteCache.joinToCreates.get(vc.guildId, vc.id);
+        if (!tempVoice) {
+            return await message.reply({
+                ephemeral: true,
+                embeds: [
+                    new ErrorEmbed(message).addField(client.translate(message.guildId, "commands.temporary.voice.errors.notVC.title"), client.translate(message.guildId, "commands.temporary.voice.errors.notVC.text", { channelMention: parseChannelMention(vc.id) }))
+                ]
+            });
+        }
+
+        // Check if the bot has the permission to change the name of the VC and if the user is the owner
+        if (!vc.permissionsFor(client.user).has(PermissionFlagsBits.ManageChannels) || tempVoice.userId !== message.author.id) {
+            return await message.reply({
+                ephemeral: true,
+                embeds: [
+                    new ErrorEmbed(message).addField(client.translate(message.guildId, "commands.temporary.voice.errors.permission.title"), client.translate(message.guildId, "commands.temporary.voice.errors.permission.text", { channelMention: parseChannelMention(vc.id) }))
+                ]
+            });
+        }
+
+        // Check if the name contains any spaces
+        if (args[0].includes(" ")) {
+            return await message.reply({
+                ephemeral: true,
+                embeds: [
+                    new ErrorEmbed(message).addField(client.translate(message.guildId, "commands.temporary.voice.errors.invalidName.title"), client.translate(message.guildId, "commands.temporary.voice.errors.invalidName.text"))
+                ]
+            });
+        }
+
+        try {
+            await vc.setName(args[0]);
+            return await message.reply({
+                ephemeral: true,
+                content: `Channel name updated to ${args[0]}.`
+            });
+        } catch (error) {
+            return await message.reply({
+                ephemeral: true,
+                embeds: [
+                    new ErrorEmbed(message).addField(client.translate(message.guildId, "general.errors.title"), client.translate(message.guildId, "commands.temporary.voice.errors.setName", { error: error.message }))
+                ]
+            });
+        }
+    }
+};
