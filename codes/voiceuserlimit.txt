@@ -1,0 +1,128 @@
+import { PermissionFlagsBits } from "discord.js";
+
+import { getVoiceMembers } from "../../../structures/Utils/ChannelUtils.mjs";
+
+import { Embed, ErrorEmbed } from "../../../structures/Utils/Embeds.mjs";
+
+import { checkPreMusicCommand } from "../../../structures/Utils/MusicUtils.mjs";
+
+import { formBool, parseChannelMention, parseUserMention } from "../../../structures/Utils/StringUtils.mjs";
+
+import { msUnix } from "../../../structures/Utils/TimeUtils.mjs";
+
+/** @type {import("../../../structures/Types/Command.mjs").PrefixCommand}*/
+
+export default {
+
+    name: "userlimit",
+
+    slashCommandKey: "/temp voice userlimit",
+
+    description: "Sets the user limit of the temporary voice channel.",
+
+    options: [{
+
+        name: "limit",
+
+        description: "The new user limit for the channel (1-99).",
+
+        type: "INTEGER",
+
+        required: true,
+
+    }],
+
+    async execute(client, message, args) {
+
+        if (!checkPreMusicCommand(message, undefined, "voice", { isInVC: true })) return;
+
+        const vc = message.member.voice.channel;
+
+        const tempVoice = await client.remoteCache.joinToCreates.get(vc.guildId, vc.id);
+
+        if (!tempVoice) {
+
+            return await message.reply({
+
+                ephemeral: true,
+
+                embeds: [
+
+                    new ErrorEmbed(message).addField(client.translate(message.guildId, "commands.temporary.voice.errors.notVC.title"), client.translate(message.guildId, "commands.temporary.voice.errors.notVC.text", { channelMention: parseChannelMention(vc.id) }))
+
+                ]
+
+            });
+
+        }
+
+        // Check if the bot has the permission to change the user limit of the VC and if the user is the owner
+
+        if (!vc.permissionsFor(client.user).has(PermissionFlagsBits.ManageChannels) || tempVoice.userId !== message.author.id) {
+
+            return await message.reply({
+
+                ephemeral: true,
+
+                embeds: [
+
+                    new ErrorEmbed(message).addField(client.translate(message.guildId, "commands.temporary.voice.errors.permission.title"), client.translate(message.guildId, "commands.temporary.voice.errors.permission.text", { channelMention: parseChannelMention(vc.id) }))
+
+                ]
+
+            });
+
+        }
+
+        const limit = args[0];
+
+        // Check if the user limit is within the valid range (1-99)
+
+        if (isNaN(limit) || limit < 1 || limit > 99) {
+
+            return await message.reply({
+
+                ephemeral: true,
+
+                embeds: [
+
+                    new ErrorEmbed(message).addField(client.translate(message.guildId, "commands.temporary.voice.errors.invalidLimit.title"), client.translate(message.guildId, "commands.temporary.voice.errors.invalidLimit.text"))
+
+                ]
+
+            });
+
+        }
+
+        try {
+
+            await vc.setUserLimit(limit);
+
+            return await message.reply({
+
+                ephemeral: true,
+
+                content: `User limit updated to ${limit}.`
+
+            });
+
+        } catch (error) {
+
+            return await message.reply({
+
+                ephemeral: true,
+
+                embeds: [
+
+                    new ErrorEmbed(message).addField(client.translate(message.guildId, "general.errors.title"), client.translate(message.guildId, "commands.temporary.voice.errors.setUserLimit", { error: error.message }))
+
+                ]
+
+            });
+
+        }
+
+    }
+
+};
+
