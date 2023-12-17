@@ -16,6 +16,7 @@ const upload = multer({ dest: "img/" }); // Set the destination folder for uploa
 // Define the username and password for authentication
 const users = {
   12: "12",
+  aauysh: "aayush1234",
   sahil: "SahilOp1234",
 };
 
@@ -92,6 +93,6 @@ app.post("/upload", upload.array("images", 10), (req, res) => {
 });
 
 // Dynamically load all images in /img
-app.listen(3000, () => {
-  console.log("Server is running on port 3000");
+app.listen(80, () => {
+  console.log("Server is running on port 80");
 });
